@@ -28,7 +28,7 @@ def load_model():
 model = load_model()
 
 ############################################
-# HISTORICAL EVENT DATASET
+# HISTORICAL EVENTS
 ############################################
 
 historical_events = [
@@ -63,41 +63,36 @@ def get_events():
     url = "https://api.gdeltproject.org/api/v2/doc/doc"
 
     params = {
-        "query":"war OR sanctions OR tariffs OR oil OR military",
-        "mode":"ArtList",
-        "maxrecords":20,
-        "format":"json"
+        "query": "war OR military OR sanctions OR tariff OR election OR oil",
+        "mode": "ArtList",
+        "maxrecords": 30,
+        "format": "json",
+        "sort": "HybridRel"
     }
 
     headers = {
-        "User-Agent":"MacroShockEngine/1.0"
+        "User-Agent": "MacroShockEngine/1.0"
     }
 
     for attempt in range(3):
 
         try:
 
-            r = requests.get(
-                url,
-                params=params,
-                headers=headers,
-                timeout=10
-            )
+            r = requests.get(url, params=params, headers=headers, timeout=10)
 
             if r.status_code != 200:
                 time.sleep(1)
                 continue
 
-            if "application/json" not in r.headers.get("Content-Type",""):
-                time.sleep(1)
-                continue
-
             data = r.json()
 
-            if "articles" not in data:
-                return pd.DataFrame()
+            if "articles" in data:
+                return pd.DataFrame(data["articles"])
 
-            return pd.DataFrame(data["articles"])
+            if "artlist" in data:
+                return pd.DataFrame(data["artlist"])
+
+            return pd.DataFrame()
 
         except Exception:
             time.sleep(1)
@@ -149,6 +144,8 @@ def geopolitical_engine():
 
     df = get_events()
 
+    st.write("Events retrieved:", len(df))
+
     if df.empty:
         return pd.DataFrame()
 
@@ -156,7 +153,10 @@ def geopolitical_engine():
 
     for _,row in df.iterrows():
 
-        title = row["title"]
+        title = row.get("title","")
+
+        if not title:
+            continue
 
         hist_event, similarity = find_similar_event(title)
 
